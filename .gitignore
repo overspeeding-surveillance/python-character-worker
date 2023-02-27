@@ -1,0 +1,13 @@
+.env
+
+.vscode
+
+/**/__pycache__
+__pycache__
+
+output
+
+*.jpg
+*.jpeg
+*.png
+*.svg
