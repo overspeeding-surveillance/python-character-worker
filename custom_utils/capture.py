@@ -5,7 +5,7 @@ import uuid
 
 def capture_character(frame, x1, y1, x2, y2, foldername, filename):
     # base_path = "../characters"
-    base_path = os.path.join('output', foldername)
+    base_path = os.path.join('../characters', foldername)
     if not os.path.exists(base_path):
         os.makedirs(base_path)
 

@@ -13,90 +13,75 @@ FOURTH_PYTHON_QUEUE = "FOURTH_PYTHON_QUEUE"
 model = torch.hub.load("ultralytics/yolov5", "custom",
                        path="best.pt", force_reload=True)
 
-results = model('plate.jpeg')
-[readable_result] = results.pandas().xyxy
 
-img = cv2.imread("plate.jpeg", 0)
+def main():
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(host='localhost'))
+    channel = connection.channel()
 
-foldername = str(uuid.uuid4())
+    channel.queue_declare(queue=THIRD_PYTHON_QUEUE)
 
-list = []
-top_characters_list = []
-bottom_characters_list = []
+    def callback_function(ch, method, properties, body):
+        print(" [x] Received %r" % body)
+        number_plate_img_path = "../number_plates/" + str(body.decode())
 
-# total ymax height
-total_height = 0
+        if not os.path.exists(number_plate_img_path):
+            return
 
-# if the detection is above the mean than its a top character and vice versa
-for i in range(0, len(readable_result)):
-    xmin = int(readable_result['xmin'][i])
-    ymin = int(readable_result['ymin'][i])
-    xmax = int(readable_result['xmax'][i])
-    ymax = int(readable_result['ymax'][i])
-    total_height = total_height + ymax
-    list.append([xmin, ymin, xmax, ymax])
+        results = model(number_plate_img_path)
+        [readable_result] = results.pandas().xyxy
 
-mean_height = total_height / len(list)
+        img = cv2.imread(number_plate_img_path, 0)
 
-for detection in list:
-    if detection[3] < mean_height:
-        top_characters_list.append(detection)
-    else:
-        bottom_characters_list.append(detection)
+        foldername = str(uuid.uuid4())
 
-top_characters_list = sort(top_characters_list)
-bottom_characters_list = sort(bottom_characters_list)
+        list = []
+        top_characters_list = []
+        bottom_characters_list = []
 
-sorted_list = top_characters_list + bottom_characters_list
+        # total ymax height
+        total_height = 0
 
-for i in range(0, len(sorted_list)):
-    filename = str(i) + ".jpg"
-    capture_character(img, list[i][0], list[i][1],
-                      list[i][2], list[i][3], foldername, filename)
+        # if the detection is above the mean than its a top character and vice versa
+        for i in range(0, len(readable_result)):
+            xmin = int(readable_result['xmin'][i])
+            ymin = int(readable_result['ymin'][i])
+            xmax = int(readable_result['xmax'][i])
+            ymax = int(readable_result['ymax'][i])
+            total_height = total_height + ymax
+            list.append([xmin, ymin, xmax, ymax])
 
-# def main():
-#     connection = pika.BlockingConnection(
-#         pika.ConnectionParameters(host='localhost'))
-#     channel = connection.channel()
+        mean_height = total_height / len(list)
 
-#     channel.queue_declare(queue=THIRD_PYTHON_QUEUE)
+        for detection in list:
+            if detection[3] < mean_height:
+                top_characters_list.append(detection)
+            else:
+                bottom_characters_list.append(detection)
 
-#     def callback(ch, method, properties, body):
-#         print(" [x] Received %r" % body)
-#         number_plate_img_path = "../number_plates/" + str(body.decode())
-#         print(number_plate_img_path)
+        top_characters_list = sort(top_characters_list)
+        bottom_characters_list = sort(bottom_characters_list)
 
-#         if not os.path.exists(number_plate_img_path):
-#             return
-#         results = model('plate.jpeg')
-#         [readable_result] = results.pandas().xyxy
+        sorted_list = top_characters_list + bottom_characters_list
 
-#         img = cv2.imread("plate.jpeg", 0)
+        for i in range(0, len(sorted_list)):
+            filename = str(list[i][0]) + " - " + str(i) + ".jpg"
+            capture_character(img, sorted_list[i][0], sorted_list[i][1],
+                              sorted_list[i][2], sorted_list[i][3], foldername, filename)
 
-#         foldername = str(uuid.uuid4()) + ".jpg"
+    channel.basic_consume(
+        queue=THIRD_PYTHON_QUEUE, on_message_callback=callback_function, auto_ack=True)
 
-#         for i in range(0, len(readable_result)):
-#             xmin = int(readable_result['xmin'][i])
-#             ymin = int(readable_result['ymin'][i])
-#             xmax = int(readable_result['xmax'][i])
-#             ymax = int(readable_result['ymax'][i])
-#             filename = str(i) + ".jpg"
-#             capture_character(img, xmin, ymin, xmax,
-#                               ymax, foldername, filename)
-
-#     channel.basic_consume(
-#         queue=THIRD_PYTHON_QUEUE, on_message_callback=callback, auto_ack=True)
-
-#     print(' [*] Waiting for messages. To exit press CTRL+C')
-#     channel.start_consuming()
+    print(' [*] Waiting for messages. To exit press CTRL+C')
+    channel.start_consuming()
 
 
-# if __name__ == '__main__':
-#     try:
-#         main()
-#     except KeyboardInterrupt:
-#         print('Interrupted')
-#         try:
-#             sys.exit(0)
-#         except SystemExit:
-#             os._exit(0)
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('Interrupted')
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)
