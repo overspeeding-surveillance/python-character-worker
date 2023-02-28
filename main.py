@@ -65,9 +65,12 @@ def main():
         sorted_list = top_characters_list + bottom_characters_list
 
         for i in range(0, len(sorted_list)):
-            filename = str(list[i][0]) + " - " + str(i) + ".jpg"
+            filename = str(i) + ".jpg"
             capture_character(img, sorted_list[i][0], sorted_list[i][1],
                               sorted_list[i][2], sorted_list[i][3], foldername, filename)
+            channel.basic_publish(
+                exchange='', routing_key=FOURTH_PYTHON_QUEUE, body=foldername)
+            print(" [x] Sent " + foldername)
 
     channel.basic_consume(
         queue=THIRD_PYTHON_QUEUE, on_message_callback=callback_function, auto_ack=True)
