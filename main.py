@@ -51,6 +51,9 @@ def main():
             total_height = total_height + ymax
             list.append([xmin, ymin, xmax, ymax])
 
+        if len(list) == 0:
+            return
+
         mean_height = total_height / len(list)
 
         for detection in list:
